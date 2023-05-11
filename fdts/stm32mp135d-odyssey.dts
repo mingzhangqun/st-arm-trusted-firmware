@@ -306,6 +306,23 @@
 	status = "okay";
 };
 
+&sdmmc2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&sdmmc2_b4_pins_a &sdmmc2_clk_pins_a &sdmmc2_d47_pins_a>;
+
+	non-removable;
+	st,neg-edge;
+	bus-width = <8>;
+	vmmc-supply = <&vdd_sd>;
+	vqmmc-supply = <&vdd_sd>;
+
+	no-sd;
+	no-sdio;
+	mmc-ddr-3_3v;
+	no-1-8-v;
+	status = "okay";
+};
+
 &uart4 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart4_pins_a>;
@@ -352,6 +369,41 @@
 			slew-rate = <1>;
 			drive-push-pull;
 			bias-disable;
+		};
+	};
+
+	/* sdmmc2 */
+	sdmmc2_b4_pins_a: sdmmc2-b4-0 {
+		pins {
+			pinmux = <STM32_PINMUX('B', 14, AF10)>, /* SDMMC2_D0 */
+				 <STM32_PINMUX('B', 15, AF10)>, /* SDMMC2_D1 */
+				 <STM32_PINMUX('B', 3, AF10)>, /* SDMMC2_D2 */
+				 <STM32_PINMUX('B', 4, AF10)>, /* SDMMC2_D3 */
+				 <STM32_PINMUX('G', 6, AF10)>; /* SDMMC2_CMD */
+			slew-rate = <1>;
+			drive-push-pull;
+			bias-pull-up;
+		};
+	};
+
+	sdmmc2_clk_pins_a: sdmmc2-clk-0 {
+		pins {
+			pinmux = <STM32_PINMUX('E', 3, AF10)>; /* SDMMC2_CK */
+			slew-rate = <1>;
+			drive-push-pull;
+			bias-pull-up;
+		};
+	};
+
+	sdmmc2_d47_pins_a: sdmmc2-d47-0 {
+		pins {
+			pinmux = <STM32_PINMUX('F', 0, AF10)>, /* SDMMC2_D4 */
+				 <STM32_PINMUX('B', 9, AF10)>, /* SDMMC2_D5 */
+				 <STM32_PINMUX('C', 6, AF10)>, /* SDMMC2_D6 */
+				 <STM32_PINMUX('C', 7, AF10)>; /* SDMMC2_D7 */
+			slew-rate = <1>;
+			drive-push-pull;
+			bias-pull-up;
 		};
 	};
 
