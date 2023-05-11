@@ -7,20 +7,17 @@
 /dts-v1/;
 
 #include <dt-bindings/clock/stm32mp13-clksrc.h>
+#include <dt-bindings/pinctrl/stm32-pinfunc.h>
 #include "stm32mp135.dtsi"
 #include "stm32mp13xf.dtsi"
 #include "stm32mp13-ddr3-1x4Gb-1066-binF.dtsi"
-#include "stm32mp13-pinctrl.dtsi"
 
 / {
-	model = "STMicroelectronics STM32MP135F-DK Discovery Board";
-	compatible = "st,stm32mp135f-dk", "st,stm32mp135";
+	model = "Seeed STM32MP135D Odyssey Board";
+	compatible = "st,stm32mp135d-odyssey", "st,stm32mp135f-dk", "st,stm32mp135";
 
 	aliases {
 		serial0 = &uart4;
-		serial1 = &usart1;
-		serial2 = &uart8;
-		serial3 = &usart2;
 	};
 
 	chosen {
@@ -316,14 +313,59 @@
 };
 
 &uart8 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&uart8_pins_a>;
 	status = "disabled";
 };
 
 &usart1 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&usart1_pins_a>;
-	uart-has-rtscts;
 	status = "disabled";
+};
+
+&pinctrl {
+	/* i2c4 */
+	i2c4_pins_a: i2c4-0 {
+		pins {
+			pinmux = <STM32_PINMUX('E', 15, AF6)>, /* I2C4_SCL */
+				 <STM32_PINMUX('B', 7, AF6)>; /* I2C4_SDA */
+			bias-disable;
+			drive-open-drain;
+			slew-rate = <0>;
+		};
+	};
+
+	/* sdmmc1 */
+	sdmmc1_b4_pins_a: sdmmc1-b4-0 {
+		pins {
+			pinmux = <STM32_PINMUX('C', 8, AF12)>, /* SDMMC1_D0 */
+				 <STM32_PINMUX('C', 9, AF12)>, /* SDMMC1_D1 */
+				 <STM32_PINMUX('C', 10, AF12)>, /* SDMMC1_D2 */
+				 <STM32_PINMUX('C', 11, AF12)>, /* SDMMC1_D3 */
+				 <STM32_PINMUX('D', 2, AF12)>; /* SDMMC1_CMD */
+			slew-rate = <1>;
+			drive-push-pull;
+			bias-disable;
+		};
+	};
+
+	sdmmc1_clk_pins_a: sdmmc1-clk-0 {
+		pins {
+			pinmux = <STM32_PINMUX('C', 12, AF12)>; /* SDMMC1_CK */
+			slew-rate = <1>;
+			drive-push-pull;
+			bias-disable;
+		};
+	};
+
+	/* uart4 */
+	uart4_pins_a: uart4-0 {
+		pins1 {
+			pinmux = <STM32_PINMUX('A', 13, AF8)>; /* UART4_TX */
+			bias-disable;
+			drive-push-pull;
+			slew-rate = <0>;
+		};
+		pins2 {
+			pinmux = <STM32_PINMUX('E', 5, AF8)>; /* UART4_RX */
+			bias-disable;
+		};
+	};
 };
