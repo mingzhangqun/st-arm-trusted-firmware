@@ -2,6 +2,9 @@
 /*
  * Copyright (C) STMicroelectronics 2021 - All Rights Reserved
  * Author: Alexandre Torgue <alexandre.torgue@foss.st.com> for STMicroelectronics.
+ *
+ * Copyright (C) Seeed Studio 2023 - All Rights Reserved
+ * Author: Zhangqun Ming <zhangqun.ming@seeed.cc> for Seeed.
  */
 
 /dts-v1/;
