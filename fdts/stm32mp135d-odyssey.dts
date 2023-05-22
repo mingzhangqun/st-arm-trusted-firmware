@@ -170,10 +170,6 @@
 	status = "okay";
 };
 
-&pka {
-	status = "okay";
-};
-
 &pwr_regulators {
 	vdd-supply = <&vdd>;
 	vdd_3v3_usbfs-supply = <&vdd_usb>;
@@ -289,10 +285,6 @@
 };
 
 &rng {
-	status = "okay";
-};
-
-&saes {
 	status = "okay";
 };
 
