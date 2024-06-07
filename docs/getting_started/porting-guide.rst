@@ -524,6 +524,15 @@ memory layout implies some image overlaying like in Arm standard platforms.
 
    Defines the maximum address that the TSP's progbits sections can occupy.
 
+If the platform supports OS-initiated mode, i.e. the build option
+``PSCI_OS_INIT_MODE`` is enabled, and if the platform's maximum power domain
+level for PSCI_CPU_SUSPEND differs from ``PLAT_MAX_PWR_LVL``, the following
+constant must be defined.
+
+-  **#define : PLAT_MAX_CPU_SUSPEND_PWR_LVL**
+
+   Defines the maximum power domain level that PSCI_CPU_SUSPEND should apply to.
+
 If the platform port uses the PL061 GPIO driver, the following constant may
 optionally be defined:
 
@@ -1173,6 +1182,18 @@ reasons like an Authentication failure, or on crossing a set number of watchdog
 resets while booting from the active bank, the platform can then switch to boot
 from a different bank. This function then returns the bank that the platform
 should boot its images from.
+
+Function : plat_fwu_is_enabled() [when PSA_FWU_SUPPORT == 1]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
+    Argument : void
+    Return   : bool
+
+This function is mandatory when PSA_FWU_SUPPORT is enabled. It checks at
+platform level that all conditions are met to initialize FWU process.
+
 
 Common optional modifications
 -----------------------------
@@ -2128,7 +2149,7 @@ CPUs. BL31 executes at EL3 and is responsible for:
 
 #. Providing runtime firmware services. Currently, BL31 only implements a
    subset of the Power State Coordination Interface (PSCI) API as a runtime
-   service. See Section 3.3 below for details of porting the PSCI
+   service. See :ref:`psci_in_bl31` below for details of porting the PSCI
    implementation.
 
 #. Optionally passing control to the BL32 image, pre-loaded at a platform-
@@ -2537,6 +2558,8 @@ Function: bool plat_get_entropy(uint64_t \*out) [mandatory]
 This function writes entropy into storage provided by the caller. If no entropy
 is available, it must return false and the storage must not be written.
 
+.. _psci_in_bl31:
+
 Power State Coordination Interface (in BL31)
 --------------------------------------------
 
@@ -2719,6 +2742,22 @@ Perform the platform specific actions to power on a CPU, specified
 by the ``MPIDR`` (first argument). The generic code expects the platform to
 return PSCI_E_SUCCESS on success or PSCI_E_INTERN_FAIL for any failure.
 
+plat_psci_ops.pwr_domain_off_early() [optional]
+...............................................
+
+This optional function performs the platform specific actions to check if
+powering off the calling CPU and its higher parent power domain levels as
+indicated by the ``target_state`` (first argument) is possible or allowed.
+
+The ``target_state`` encodes the platform coordinated target local power states
+for the CPU power domain and its parent power domain levels.
+
+For this handler, the local power state for the CPU power domain will be a
+power down state where as it could be either power down, retention or run state
+for the higher power domain levels depending on the result of state
+coordination. The generic code expects PSCI_E_DENIED return code if the
+platform thinks that CPU_OFF should not proceed on the calling CPU.
+
 plat_psci_ops.pwr_domain_off()
 ..............................
 
@@ -2735,6 +2774,17 @@ For this handler, the local power state for the CPU power domain will be a
 power down state where as it could be either power down, retention or run state
 for the higher power domain levels depending on the result of state
 coordination. The generic code expects the handler to succeed.
+
+plat_psci_ops.pwr_domain_validate_suspend() [optional]
+......................................................
+
+This is an optional function that is only compiled into the build if the build
+option ``PSCI_OS_INIT_MODE`` is enabled.
+
+If implemented, this function allows the platform to perform platform specific
+validations based on hardware states. The generic code expects this function to
+return PSCI_E_SUCCESS on success, or either PSCI_E_DENIED or
+PSCI_E_INVALID_PARAMS as appropriate for any invalid requests.
 
 plat_psci_ops.pwr_domain_suspend_pwrdown_early() [optional]
 ...........................................................

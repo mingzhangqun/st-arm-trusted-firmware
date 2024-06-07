@@ -17,14 +17,16 @@
 
 #define MAX_PROPERTY_LEN 64
 
+CASSERT(PLAT_NB_RDEVS >= 1U, plat_nb_rdevs_must_be_higher);
+
 static struct rdev rdev_array[PLAT_NB_RDEVS];
 
 #define for_each_rdev(rdev) \
-	for (rdev = rdev_array; rdev < (rdev_array + PLAT_NB_RDEVS); rdev++)
+	for ((rdev) = rdev_array; (rdev) <= &rdev_array[PLAT_NB_RDEVS - 1U]; (rdev)++)
 
 #define for_each_registered_rdev(rdev) \
-	for (rdev = rdev_array; \
-	     (rdev < (rdev_array + PLAT_NB_RDEVS)) && (rdev->desc != NULL); rdev++)
+	for ((rdev) = rdev_array; \
+	     ((rdev) <= &rdev_array[PLAT_NB_RDEVS - 1U]) && ((rdev)->desc != NULL); (rdev)++)
 
 static void lock_driver(const struct rdev *rdev)
 {
@@ -86,7 +88,7 @@ static int32_t get_supply_phandle(const void *fdt, int node, const char *name)
 	char prop_name[MAX_PROPERTY_LEN];
 
 	len = snprintf(prop_name, MAX_PROPERTY_LEN - 1, "%s-supply", name);
-	assert((len >= 0) && (len < MAX_PROPERTY_LEN - 1));
+	assert((len >= 0) && (len < (MAX_PROPERTY_LEN - 1)));
 
 	cuint = fdt_getprop(fdt, node, prop_name, NULL);
 	if (cuint != NULL) {
@@ -156,7 +158,7 @@ int regulator_disable(struct rdev *rdev)
 
 	assert(rdev != NULL);
 
-	if (rdev->flags & REGUL_ALWAYS_ON) {
+	if ((rdev->flags & REGUL_ALWAYS_ON) != 0U) {
 		return 0;
 	}
 
@@ -213,12 +215,16 @@ int regulator_set_voltage(struct rdev *rdev, uint16_t mvolt)
 
 	VERBOSE("%s: set mvolt\n", rdev->desc->node_name);
 
-	if (rdev->desc->ops->set_voltage == NULL) {
-		return -ENODEV;
-	}
-
 	if ((mvolt < rdev->min_mv) || (mvolt > rdev->max_mv)) {
 		return -EPERM;
+	}
+
+	if (regulator_get_voltage(rdev) == mvolt) {
+		return 0U;
+	}
+
+	if (rdev->desc->ops->set_voltage == NULL) {
+		return -ENODEV;
 	}
 
 	lock_driver(rdev);
@@ -418,6 +424,7 @@ int regulator_set_flag(struct rdev *rdev, uint16_t flag)
 
 static int parse_properties(const void *fdt, struct rdev *rdev, int node)
 {
+	const fdt32_t *cuint;
 	int ret;
 
 	if (fdt_getprop(fdt, node, "regulator-always-on", NULL) != NULL) {
@@ -426,6 +433,13 @@ static int parse_properties(const void *fdt, struct rdev *rdev, int node)
 		if (ret != 0) {
 			return ret;
 		}
+	}
+
+	cuint = fdt_getprop(fdt, node, "regulator-enable-ramp-delay", NULL);
+	if (cuint != NULL) {
+		rdev->enable_ramp_delay = fdt32_to_cpu(*cuint);
+		VERBOSE("%s: enable_ramp_delay=%u\n", rdev->desc->node_name,
+			rdev->enable_ramp_delay);
 	}
 
 	return 0;
@@ -525,7 +539,7 @@ int regulator_register(const struct regul_description *desc, int node)
 		}
 	}
 
-	if (rdev == rdev_array + PLAT_NB_RDEVS) {
+	if (rdev > &rdev_array[PLAT_NB_RDEVS - 1U]) {
 		WARN("Not enough place for regulators, PLAT_NB_RDEVS should be increased.\n");
 		return -ENOMEM;
 	}
