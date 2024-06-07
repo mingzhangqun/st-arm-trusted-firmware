@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, STMicroelectronics - All Rights Reserved
+ * Copyright (c) 2022-2023, STMicroelectronics - All Rights Reserved
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -18,6 +18,11 @@
 #include <plat/common/platform.h>
 
 #include <platform_def.h>
+
+#if !PKA_USE_NIST_P256 && !PKA_USE_BRAINPOOL_P256R1 && !PKA_USE_BRAINPOOL_P256T1 && \
+	!PKA_USE_NIST_P521
+#error "At least one ECDSA curve needs to be selected"
+#endif
 
 /*
  * For our comprehension in this file
@@ -51,7 +56,7 @@
 #define _PKA_IPIDR			0x1FF8U
 
 /* PKA control register fields */
-#define _PKA_CR_MODE_MASK		GENMASK(13, 8)
+#define _PKA_CR_MODE_MASK		GENMASK_32(13, 8)
 #define _PKA_CR_MODE_SHIFT		8U
 #define _PKA_CR_MODE_ADD		0x9U
 #define _PKA_CR_MODE_ECDSA_VERIF	0x26U
@@ -64,7 +69,7 @@
 #define _PKA_SR_INITOK			BIT(0)
 
 /* PKA it flag fields (used in CR, SR and CLRFR) */
-#define _PKA_IT_MASK			(GENMASK(21, 19) | BIT(17))
+#define _PKA_IT_MASK			(GENMASK_32(21, 19) | BIT(17))
 #define _PKA_IT_SHIFT			17U
 #define _PKA_IT_OPERR			BIT(21)
 #define _PKA_IT_ADDRERR			BIT(20)
@@ -72,9 +77,9 @@
 #define _PKA_IT_PROCEND			BIT(17)
 
 /* PKA version register fields */
-#define _PKA_VERR_MAJREV_MASK		GENMASK(7, 4)
+#define _PKA_VERR_MAJREV_MASK		GENMASK_32(7, 4)
 #define _PKA_VERR_MAJREV_SHIFT		4U
-#define _PKA_VERR_MINREV_MASK		GENMASK(3, 0)
+#define _PKA_VERR_MINREV_MASK		GENMASK_32(3, 0)
 #define _PKA_VERR_MINREV_SHIFT		0U
 
 /* RAM magic offset */
@@ -253,13 +258,6 @@ static const struct curve_parameters curve_def[] = {
 };
 
 static struct stm32_pka_platdata pka_pdata;
-
-#pragma weak stm32_pka_get_platdata
-
-int stm32_pka_get_platdata(struct stm32_pka_platdata *pdata)
-{
-	return -ENODEV;
-}
 
 static int stm32_pka_parse_fdt(void)
 {
@@ -583,10 +581,7 @@ int stm32_pka_init(void)
 
 	err = stm32_pka_parse_fdt();
 	if (err != 0) {
-		err = stm32_pka_get_platdata(&pka_pdata);
-		if (err != 0) {
-			return err;
-		}
+		return err;
 	}
 
 	clk_enable(pka_pdata.clock_id);

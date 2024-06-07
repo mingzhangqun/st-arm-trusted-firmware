@@ -266,12 +266,16 @@ const partition_entry_t *get_partition_entry(const char *name)
 	return NULL;
 }
 
-const partition_entry_t *get_partition_entry_by_type(const uuid_t *type_uuid)
+/*
+ * Try retrieving a partition table entry based on the partition type GUID.
+ */
+const partition_entry_t *get_partition_entry_by_type(
+	const struct efi_guid *type_guid)
 {
 	int i;
 
 	for (i = 0; i < list.entry_count; i++) {
-		if (guidcmp(type_uuid, &list.list[i].type_guid) == 0) {
+		if (guidcmp(type_guid, &list.list[i].type_guid) == 0) {
 			return &list.list[i];
 		}
 	}
@@ -279,12 +283,16 @@ const partition_entry_t *get_partition_entry_by_type(const uuid_t *type_uuid)
 	return NULL;
 }
 
-const partition_entry_t *get_partition_entry_by_uuid(const uuid_t *part_uuid)
+/*
+ * Try retrieving a partition table entry based on the unique partition GUID.
+ */
+const partition_entry_t *get_partition_entry_by_guid(
+	const struct efi_guid *part_guid)
 {
 	int i;
 
 	for (i = 0; i < list.entry_count; i++) {
-		if (guidcmp(part_uuid, &list.list[i].part_guid) == 0) {
+		if (guidcmp(part_guid, &list.list[i].part_guid) == 0) {
 			return &list.list[i];
 		}
 	}

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2020-2023, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -111,6 +111,7 @@
 	.data . : ALIGN(DATA_ALIGN) {			\
 		__DATA_START__ = .;			\
 		*(SORT_BY_ALIGNMENT(.data*))		\
+		. = ALIGN(2);				\
 		__DATA_END__ = .;			\
 	}
 

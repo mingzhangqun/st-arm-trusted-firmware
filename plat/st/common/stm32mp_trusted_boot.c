@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, STMicroelectronics - All Rights Reserved
+ * Copyright (c) 2022-2023, STMicroelectronics - All Rights Reserved
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -10,6 +10,7 @@
 
 #include <common/debug.h>
 #include <common/tbbr/cot_def.h>
+#include <drivers/clk.h>
 #include <drivers/st/stm32_hash.h>
 #include <lib/fconf/fconf.h>
 #include <lib/fconf/fconf_dyn_cfg_getter.h>
@@ -20,8 +21,6 @@
 
 #include <boot_api.h>
 #include <platform_def.h>
-
-#define HEADER_AND_EXT_TOTAL_SIZE 512
 
 static uint8_t der_sha256_header[] = {0x30, 0x31, 0x30, 0x0d, 0x06, 0x09, 0x60,
 	0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01, 0x05, 0x00, 0x04, 0x20};
@@ -66,14 +65,14 @@ static int copy_hash_from_otp(const char *otp_name, uint8_t *hash, size_t len)
 		 * Check if key hash values in OTP are 0 or 0xFFFFFFFFF
 		 * programmed : Invalid Key
 		 */
-		if (!stm32mp_is_closed_device() && !valid) {
+		if ((stm32mp_check_closed_device() == STM32MP_CHIP_SEC_OPEN) && !valid) {
 			if ((tmp != 0U) && (tmp != 0xFFFFFFFFU) && (tmp != first)) {
 				valid = true;
 			}
 		}
 	}
 
-	if (!stm32mp_is_closed_device() && !valid) {
+	if ((stm32mp_check_closed_device() == STM32MP_CHIP_SEC_OPEN) && !valid) {
 		return 0;
 	}
 
@@ -96,8 +95,7 @@ static int get_rotpk_hash(void *cookie, uint8_t *hash, size_t len)
 	uint32_t pk_idx = 0U;
 	uint8_t calc_hash[BOOT_API_SHA256_DIGEST_SIZE_IN_BYTES];
 	uint8_t otp_hash[BOOT_API_SHA256_DIGEST_SIZE_IN_BYTES];
-	boot_api_image_header_t *hdr = (boot_api_image_header_t *)(SRAM3_BASE + SRAM3_SIZE -
-								   HEADER_AND_EXT_TOTAL_SIZE);
+	boot_api_image_header_t *hdr = (boot_api_image_header_t *)stm32_get_header_address();
 	boot_extension_header_t *ext_header = (boot_extension_header_t *)hdr->ext_header;
 	boot_ext_header_params_authentication_t *param;
 
@@ -162,7 +160,7 @@ int plat_get_rotpk_info(void *cookie, void **key_ptr, unsigned int *key_len,
 	*key_ptr = &root_pk_hash;
 	*flags = ROTPK_IS_HASH;
 
-	if ((res == 0) && !stm32mp_is_closed_device()) {
+	if ((res == 0) && (stm32mp_check_closed_device() == STM32MP_CHIP_SEC_OPEN)) {
 		*flags |= ROTPK_NOT_DEPLOYED;
 	}
 
@@ -171,16 +169,20 @@ int plat_get_rotpk_info(void *cookie, void **key_ptr, unsigned int *key_len,
 
 int plat_get_nv_ctr(void *cookie, unsigned int *nv_ctr)
 {
+	clk_enable(TAMP_BKP_REG_CLK);
 	*nv_ctr = mmio_read_32(TAMP_BASE + TAMP_COUNTR);
+	clk_disable(TAMP_BKP_REG_CLK);
 
 	return 0;
 }
 
 int plat_set_nv_ctr(void *cookie, unsigned int nv_ctr)
 {
+	clk_enable(TAMP_BKP_REG_CLK);
 	while (mmio_read_32(TAMP_BASE + TAMP_COUNTR) != nv_ctr) {
 		mmio_write_32(TAMP_BASE + TAMP_COUNTR, 1U);
 	}
+	clk_disable(TAMP_BKP_REG_CLK);
 
 	return 0;
 }

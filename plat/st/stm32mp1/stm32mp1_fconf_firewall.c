@@ -10,6 +10,7 @@
 #include <common/fdt_wrappers.h>
 #include <drivers/arm/tzc400.h>
 #include <drivers/clk.h>
+#include <drivers/st/stm32mp1_ram.h>
 #include <dt-bindings/clock/stm32mp1-clks.h>
 #include <lib/fconf/fconf.h>
 #include <lib/object_pool.h>
@@ -56,6 +57,11 @@ void stm32mp1_security_setup(void)
 {
 	uint8_t i;
 
+	/* DDR content will be restored, do not change the firewall protection */
+	if (stm32mp1_ddr_is_restored()) {
+		return;
+	}
+
 	assert(nb_regions > 0U);
 
 	tzc400_init(STM32MP1_TZC_BASE);
@@ -85,6 +91,11 @@ static int fconf_populate_stm32mp1_firewall(uintptr_t config)
 	/* Assert the node offset point to "st,mem-firewall" compatible property */
 	const char *compatible_str = "st,mem-firewall";
 
+	/* DDR content will be restored, do not change the firewall protection */
+	if (stm32mp1_ddr_is_restored()) {
+		return 0;
+	}
+
 	node = fdt_node_offset_by_compatible(dtb, -1, compatible_str);
 	if (node < 0) {
 		ERROR("FCONF: Can't find %s compatible in dtb\n", compatible_str);
@@ -99,15 +110,16 @@ static int fconf_populate_stm32mp1_firewall(uintptr_t config)
 
 	/* Locate the memory cells and read all values */
 	for (i = 0U; i < (unsigned int)(len / (sizeof(uint32_t) * STM32MP_REGION_PARAMS)); i++) {
+		uint32_t idx = i * STM32MP_REGION_PARAMS;
 		uint32_t base;
 		uint32_t size;
 		uint32_t sec_attr;
 		uint32_t nsaid;
 
-		base = fdt32_to_cpu(conf_list->id_attr[i * STM32MP_REGION_PARAMS]);
-		size = fdt32_to_cpu(conf_list->id_attr[i * STM32MP_REGION_PARAMS + 1]);
-		sec_attr = fdt32_to_cpu(conf_list->id_attr[i * STM32MP_REGION_PARAMS + 2]);
-		nsaid = fdt32_to_cpu(conf_list->id_attr[i * STM32MP_REGION_PARAMS + 3]);
+		base = fdt32_to_cpu(conf_list->id_attr[idx]);
+		size = fdt32_to_cpu(conf_list->id_attr[idx + 1]);
+		sec_attr = fdt32_to_cpu(conf_list->id_attr[idx + 2]);
+		nsaid = fdt32_to_cpu(conf_list->id_attr[idx + 3]);
 
 		VERBOSE("FCONF: stm32mp1-firewall cell found with value = 0x%x 0x%x 0x%x 0x%x\n",
 			base, size, sec_attr, nsaid);

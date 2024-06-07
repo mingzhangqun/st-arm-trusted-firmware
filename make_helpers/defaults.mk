@@ -259,6 +259,9 @@ PROGRAMMABLE_RESET_ADDRESS	:= 0
 # Flag used to choose the power state format: Extended State-ID or Original
 PSCI_EXTENDED_STATE_ID		:= 0
 
+# Enable PSCI OS-initiated mode support
+PSCI_OS_INIT_MODE		:= 0
+
 # Enable RAS support
 RAS_EXTENSION			:= 0
 
@@ -452,6 +455,14 @@ NR_OF_IMAGES_IN_FW_BANK		:= 1
 
 # Disable Firmware update support by default
 PSA_FWU_SUPPORT			:= 0
+
+# Enable image description in FWU metadata by default when PSA_FWU_SUPPORT
+# is enabled.
+ifeq ($(PSA_FWU_SUPPORT),1)
+PSA_FWU_METADATA_FW_STORE_DESC	:= 1
+else
+PSA_FWU_METADATA_FW_STORE_DESC	:= 0
+endif
 
 # By default, disable access of trace buffer control registers from NS
 # lower ELs  i.e. NS-EL2, or NS-EL1 if NS-EL2 implemented but unused

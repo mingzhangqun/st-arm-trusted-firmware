@@ -179,6 +179,35 @@ static int32_t opteed_init(void)
 	return rc;
 }
 
+/*******************************************************************************
+ * This function register OPTEE image (BL32) for the first time
+ * on the primary cpu after a cold boot or restore the state after standby.
+ ******************************************************************************/
+static void opteed_register(void)
+{
+	uint64_t rc;
+	u_register_t flags;
+
+	/*
+	 * OPTEE has been successfully initialized.
+	 * Register power management hooks with PSCI
+	 */
+	psci_register_spd_pm_hook(&opteed_pm);
+
+	/*
+	 * Register an interrupt handler for S-EL1 interrupts
+	 * when generated during code executing in the
+	 * non-secure state.
+	 */
+	flags = 0;
+	set_interrupt_rm_flag(flags, NON_SECURE);
+	rc = register_interrupt_type_handler(INTR_TYPE_S_EL1,
+				opteed_sel1_interrupt_handler,
+				flags);
+	if (rc)
+		panic();
+}
+
 
 /*******************************************************************************
  * This function is responsible for handling all SMCs in the Trusted OS/App
@@ -200,7 +229,6 @@ static uintptr_t opteed_smc_handler(uint32_t smc_fid,
 	cpu_context_t *ns_cpu_context;
 	uint32_t linear_id = plat_my_core_pos();
 	optee_context_t *optee_ctx = &opteed_sp_context[linear_id];
-	uint64_t rc;
 
 	/*
 	 * Determine which security state this SMC originated from
@@ -286,24 +314,7 @@ static uintptr_t opteed_smc_handler(uint32_t smc_fid,
 		if (optee_vector_table) {
 			set_optee_pstate(optee_ctx->state, OPTEE_PSTATE_ON);
 
-			/*
-			 * OPTEE has been successfully initialized.
-			 * Register power management hooks with PSCI
-			 */
-			psci_register_spd_pm_hook(&opteed_pm);
-
-			/*
-			 * Register an interrupt handler for S-EL1 interrupts
-			 * when generated during code executing in the
-			 * non-secure state.
-			 */
-			flags = 0;
-			set_interrupt_rm_flag(flags, NON_SECURE);
-			rc = register_interrupt_type_handler(INTR_TYPE_S_EL1,
-						opteed_sel1_interrupt_handler,
-						flags);
-			if (rc)
-				panic();
+			opteed_register();
 		}
 
 		/*
@@ -418,3 +429,9 @@ DECLARE_RT_SVC(
 	NULL,
 	opteed_smc_handler
 );
+
+/* Define an OPTEED service to restore the SPD when BL31 data are lost */
+void opteed_restore(void)
+{
+	opteed_register();
+}
