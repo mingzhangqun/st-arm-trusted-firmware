@@ -216,11 +216,15 @@ int load_auth_image(unsigned int image_id, image_info_t *image_data)
  * when PSA FWU is enabled.
  */
 #if PSA_FWU_SUPPORT
-	err = load_auth_image_internal(image_id, image_data);
+	do {
+		err = load_auth_image_internal(image_id, image_data);
+	} while ((err != 0) && (plat_try_backup_partitions(image_id) != 0));
 #else
 	do {
 		err = load_auth_image_internal(image_id, image_data);
-	} while ((err != 0) && (plat_try_next_boot_source() != 0));
+	} while (((err != 0) && ((plat_try_next_boot_source() != 0) ||
+				 (plat_try_backup_partitions(image_id) != 0))));
+
 #endif /* PSA_FWU_SUPPORT */
 
 	if (err == 0) {

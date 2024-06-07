@@ -269,6 +269,8 @@ static void fvp_pwr_domain_suspend(const psci_power_state_t *target_state)
 
 	/* Program the power controller to power off this cpu. */
 	fvp_pwrc_write_ppoffr(read_mpidr_el1());
+
+	return;
 }
 
 /*******************************************************************************

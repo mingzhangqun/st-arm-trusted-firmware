@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2022, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2017-2023, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -79,11 +79,8 @@ uint8_t fdt_get_status(int node)
 	}
 
 	cchar = fdt_getprop(fdt, node, "secure-status", NULL);
-	if (cchar == NULL) {
-		if (status == DT_NON_SECURE) {
-			status |= DT_SECURE;
-		}
-	} else if (strncmp(cchar, "okay", strlen("okay")) == 0) {
+	if (((cchar == NULL) && (status == DT_NON_SECURE)) ||
+	    ((cchar != NULL) && (strncmp(cchar, "okay", strlen("okay")) == 0))) {
 		status |= DT_SECURE;
 	}
 
@@ -231,9 +228,9 @@ int dt_match_instance_by_compatible(const char *compatible, uintptr_t address)
  * This function gets DDR size information from the DT.
  * Returns value in bytes on success, and 0 on failure.
  ******************************************************************************/
-uint32_t dt_get_ddr_size(void)
+size_t dt_get_ddr_size(void)
 {
-	static uint32_t size;
+	static size_t size;
 	int node;
 
 	if (size != 0U) {
@@ -243,12 +240,16 @@ uint32_t dt_get_ddr_size(void)
 	node = fdt_node_offset_by_compatible(fdt, -1, DT_DDR_COMPAT);
 	if (node < 0) {
 		INFO("%s: Cannot read DDR node in DT\n", __func__);
-		return 0;
+		return 0U;
 	}
 
-	size = fdt_read_uint32_default(fdt, node, "st,mem-size", 0U);
+#ifdef __aarch64__
+	size = (size_t)fdt_read_uint64_default(fdt, node, "st,mem-size", 0ULL);
+#else /* __aarch64__ */
+	size = (size_t)fdt_read_uint32_default(fdt, node, "st,mem-size", 0U);
+#endif /* __aarch64__ */
 
-	flush_dcache_range((uintptr_t)&size, sizeof(uint32_t));
+	flush_dcache_range((uintptr_t)&size, sizeof(size_t));
 
 	return size;
 }
@@ -302,6 +303,32 @@ struct rdev *dt_get_cpu_regulator(void)
 }
 
 /*******************************************************************************
+ * This function retrieves SYSRAM supply regulator from DT.
+ * Returns an rdev taken from supply node, NULL otherwise.
+ ******************************************************************************/
+struct rdev *dt_get_sysram_regulator(void)
+{
+	int node;
+
+	fdt_for_each_compatible_node(fdt, node, DT_MMIO_SRAM) {
+		int len;
+		const fdt32_t *cuint = fdt_getprop(fdt, node, "reg", &len);
+
+		if (cuint != NULL) {
+			if (fdt32_to_cpu(*cuint) == STM32MP_SYSRAM_BASE) {
+				break;
+			}
+		}
+	}
+
+	if (node < 0) {
+		return NULL;
+	}
+
+	return regulator_get_by_supply_name(fdt, node, "vddcore");
+}
+
+/*******************************************************************************
  * This function retrieves board model from DT
  * Returns string taken from model node, NULL otherwise
  ******************************************************************************/
@@ -350,7 +377,7 @@ int dt_find_otp_name(const char *name, uint32_t *otp, uint32_t *otp_len)
 		return -FDT_ERR_BADVALUE;
 	}
 
-	if (fdt32_to_cpu(*cuint) % sizeof(uint32_t)) {
+	if ((fdt32_to_cpu(*cuint) % sizeof(uint32_t)) != 0U) {
 		ERROR("Misaligned nvmem %s element: ignored\n", name);
 		return -FDT_ERR_BADVALUE;
 	}
@@ -363,6 +390,53 @@ int dt_find_otp_name(const char *name, uint32_t *otp, uint32_t *otp_len)
 		cuint++;
 		*otp_len = fdt32_to_cpu(*cuint) * CHAR_BIT;
 	}
+
+	return 0;
+}
+
+/*
+ * dt_get_otp_by_phandle: return OTP id and OTP size for a given phandle
+ * phandle: phandle to be found
+ * otp_id: return value for the OTP id found
+ * otp_len: return value for the OTP len
+ * return: 0 if OTP found, a negative error value otherwise
+ */
+int dt_get_otp_by_phandle(const uint32_t phandle, uint32_t *otp_id, uint32_t *otp_len)
+{
+	int node;
+	int child;
+	const fdt32_t *cuint;
+	uint32_t offset;
+	bool otp_found = false;
+
+	node = fdt_node_offset_by_compatible(fdt, -1, DT_BSEC_COMPAT);
+	if (node < 0) {
+		return node;
+	}
+
+	fdt_for_each_subnode(child, fdt, node) {
+		uint32_t ph = fdt_get_phandle(fdt, child);
+
+		if (ph == phandle) {
+			otp_found = true;
+			break;
+		}
+	}
+
+	if (!otp_found) {
+		return -FDT_ERR_NOTFOUND;
+	}
+
+	cuint = fdt_getprop(fdt, child, "reg", NULL);
+	if (cuint == NULL) {
+		panic();
+	}
+
+	offset = fdt32_to_cpu(*cuint);
+	cuint++;
+	*otp_len = fdt32_to_cpu(*cuint);
+
+	*otp_id = offset / sizeof(uint32_t);
 
 	return 0;
 }
@@ -386,7 +460,7 @@ int fdt_get_gpio_bank_pin_count(unsigned int bank)
 
 	fdt_for_each_subnode(node, fdt, pinctrl_node) {
 		const fdt32_t *cuint;
-		int pin_count;
+		int pin_count = 0;
 		int len;
 		int i;
 
@@ -415,11 +489,9 @@ int fdt_get_gpio_bank_pin_count(unsigned int bank)
 		}
 
 		/* Get the last defined gpio line (offset + nb of pins) */
-		pin_count = fdt32_to_cpu(*(cuint + 1)) + fdt32_to_cpu(*(cuint + 3));
-		for (i = 0; i < len / 4; i++) {
-			pin_count = MAX(pin_count, (int)(fdt32_to_cpu(*(cuint + 1)) +
-							 fdt32_to_cpu(*(cuint + 3))));
-			cuint += 4;
+		for (i = 0; i < len; i += 4) {
+			pin_count = MAX(pin_count, (int)(fdt32_to_cpu(cuint[i + 1]) +
+							 fdt32_to_cpu(cuint[i + 3])));
 		}
 
 		return pin_count;

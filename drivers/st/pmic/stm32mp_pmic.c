@@ -20,6 +20,7 @@
 #include <platform_def.h>
 
 #define PMIC_NODE_NOT_FOUND	1
+#define NB_REG			14U
 
 static struct i2c_handle_s i2c_handle;
 static uint32_t pmic_i2c_addr;
@@ -58,7 +59,11 @@ int dt_pmic_status(void)
 		return status;
 	}
 
+#if defined(IMAGE_BL2)
+	status = DT_SECURE;
+#else
 	status = (int)fdt_get_status(node);
+#endif
 
 	return status;
 }
@@ -115,6 +120,10 @@ static int dt_pmic_i2c_config(struct dt_node_info *i2c_info,
 	if (i2c_info->base == 0U) {
 		return -FDT_ERR_NOTFOUND;
 	}
+
+#if defined(IMAGE_BL2)
+	i2c_info->status = DT_SECURE;
+#endif
 
 	return stm32_i2c_get_setup_from_fdt(fdt, i2c_node, init);
 }
@@ -215,120 +224,6 @@ void print_pmic_info_and_debug(void)
 }
 #endif
 
-int pmic_ddr_power_init(enum ddr_type ddr_type)
-{
-	int status;
-	uint16_t buck3_min_mv;
-	struct rdev *buck2, *buck3, *vref;
-	struct rdev *ldo3 __unused;
-
-	buck2 = regulator_get_by_name("buck2");
-	if (buck2 == NULL) {
-		return -ENOENT;
-	}
-
-#if STM32MP15
-	ldo3 = regulator_get_by_name("ldo3");
-	if (ldo3 == NULL) {
-		return -ENOENT;
-	}
-#endif
-
-	vref = regulator_get_by_name("vref_ddr");
-	if (vref == NULL) {
-		return -ENOENT;
-	}
-
-	switch (ddr_type) {
-	case STM32MP_DDR3:
-#if STM32MP15
-		status = regulator_set_flag(ldo3, REGUL_SINK_SOURCE);
-		if (status != 0) {
-			return status;
-		}
-#endif
-
-		status = regulator_set_min_voltage(buck2);
-		if (status != 0) {
-			return status;
-		}
-
-		status = regulator_enable(buck2);
-		if (status != 0) {
-			return status;
-		}
-
-		status = regulator_enable(vref);
-		if (status != 0) {
-			return status;
-		}
-
-#if STM32MP15
-		status = regulator_enable(ldo3);
-		if (status != 0) {
-			return status;
-		}
-#endif
-		break;
-
-	case STM32MP_LPDDR2:
-	case STM32MP_LPDDR3:
-		/*
-		 * Set LDO3 to 1.8V
-		 * Set LDO3 to bypass mode if BUCK3 = 1.8V
-		 * Set LDO3 to normal mode if BUCK3 != 1.8V
-		 */
-		buck3 = regulator_get_by_name("buck3");
-		if (buck3 == NULL) {
-			return -ENOENT;
-		}
-
-		regulator_get_range(buck3, &buck3_min_mv, NULL);
-
-#if STM32MP15
-		if (buck3_min_mv != 1800) {
-			status = regulator_set_min_voltage(ldo3);
-			if (status != 0) {
-				return status;
-			}
-		} else {
-			status = regulator_set_flag(ldo3, REGUL_ENABLE_BYPASS);
-			if (status != 0) {
-				return status;
-			}
-		}
-#endif
-
-		status = regulator_set_min_voltage(buck2);
-		if (status != 0) {
-			return status;
-		}
-
-#if STM32MP15
-		status = regulator_enable(ldo3);
-		if (status != 0) {
-			return status;
-		}
-#endif
-
-		status = regulator_enable(buck2);
-		if (status != 0) {
-			return status;
-		}
-
-		status = regulator_enable(vref);
-		if (status != 0) {
-			return status;
-		}
-		break;
-
-	default:
-		break;
-	};
-
-	return 0;
-}
-
 int pmic_voltages_init(void)
 {
 #if STM32MP13
@@ -357,6 +252,16 @@ int pmic_voltages_init(void)
 #endif
 
 	return 0;
+}
+
+void pmic_switch_off(void)
+{
+	if (stpmic1_switch_off() == 0) {
+		udelay(100);
+	}
+
+	/* Shouldn't be reached */
+	panic();
 }
 
 enum {
@@ -454,13 +359,13 @@ static const struct regul_ops pmic_ops = {
 };
 
 #define DEFINE_REGU(name) { \
-	.node_name = name, \
+	.node_name = (name), \
 	.ops = &pmic_ops, \
 	.driver_data = NULL, \
 	.enable_ramp_delay = 1000, \
 }
 
-static const struct regul_description pmic_regs[] = {
+static const struct regul_description pmic_regs[NB_REG] = {
 	[STPMIC1_BUCK1] = DEFINE_REGU("buck1"),
 	[STPMIC1_BUCK2] = DEFINE_REGU("buck2"),
 	[STPMIC1_BUCK3] = DEFINE_REGU("buck3"),
@@ -476,8 +381,6 @@ static const struct regul_description pmic_regs[] = {
 	[STPMIC1_VBUS_OTG] = DEFINE_REGU("pwr_sw1"),
 	[STPMIC1_SW_OUT] = DEFINE_REGU("pwr_sw2"),
 };
-
-#define NB_REG ARRAY_SIZE(pmic_regs)
 
 static int register_pmic(void)
 {
@@ -506,7 +409,7 @@ static int register_pmic(void)
 		unsigned int i;
 		int ret;
 
-		for (i = 0; i < NB_REG; i++) {
+		for (i = 0U; i < NB_REG; i++) {
 			desc = &pmic_regs[i];
 			if (strcmp(desc->node_name, reg_name) == 0) {
 				break;
@@ -519,6 +422,15 @@ static int register_pmic(void)
 			WARN("%s:%d failed to register %s\n", __func__,
 			     __LINE__, reg_name);
 			return ret;
+		}
+
+		if (fdt_getprop(fdt, subnode, "st,mask-reset", NULL)  != NULL) {
+			VERBOSE("%s: set mask-reset\n", desc->node_name);
+			ret = pmic_set_flag(desc, REGUL_MASK_RESET);
+			if (ret != 0) {
+				ERROR("set mask-reset failed\n");
+				return ret;
+			}
 		}
 	}
 

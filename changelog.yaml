@@ -537,6 +537,9 @@ subsections:
               - title: STM32MP15
                 scope: stm32mp15
 
+          - title: STM32MP2
+            scope: stm32mp2
+
       - title: Texas Instruments
         scope: ti
 
@@ -1044,11 +1047,26 @@ subsections:
           - title: GPIO
             scope: st-gpio
 
+          - title: NVMEM
+            scope: st-nvmem
+
+          - title: Regulator
+            scope: st-regulator
+
+          - title: Reset
+            scope: st-reset
+
+          - title: Resource Isolation Framework
+            scope: st-rif
+
           - title: SDMMC2
             scope: st-sdmmc2
 
             deprecated:
               - stm32_sdmmc2
+
+          - title: SPI
+            scope: st-spi
 
           - title: ST PMIC
             scope: st-pmic
@@ -1058,15 +1076,6 @@ subsections:
 
           - title: STPMIC1
             scope: stpmic1
-
-          - title: Regulator
-            scope: st-regulator
-
-          - title: Reset
-            scope: st-reset
-
-          - title: SPI
-            scope: st-spi
 
           - title: UART
             scope: st-uart
@@ -1153,6 +1162,9 @@ subsections:
 
               - title: STM32MP15
                 scope: stm32mp15-fdts
+
+          - title: STM32MP2
+            scope: stm32mp2-fdts
 
       - title: PIE
         scope: pie

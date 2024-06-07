@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2015-2022, Arm Limited and Contributors. All rights reserved.
+# Copyright (c) 2015-2023, Arm Limited and Contributors. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -72,6 +72,7 @@ endef
 # Convenience function for verifying option has a boolean value
 # $(eval $(call assert_boolean,FOO)) will assert FOO is 0 or 1
 define assert_boolean
+    $(if $($(1)),,$(error $(1) must not be empty))
     $(if $(filter-out 0 1,$($1)),$(error $1 must be boolean))
 endef
 
@@ -165,6 +166,16 @@ define ENCRYPT_FW
 $(2): $(1) enctool
 	$$(ECHO) "  ENC     $$<"
 	$$(Q)$$(ENCTOOL) $$(ENC_ARGS) -i $$< -o $$@
+endef
+
+# GEN_METADATA
+define GEN_METADATA
+$(dir $(2)):
+	$$(Q)mkdir -p $$(dir $(2))
+
+$(2): $(1) | $(dir $(2))
+	$$(ECHO) "  GEN_METADATA     $$<"
+	$$(Q)$$(FWUMDTOOL) $$(FWUMD_ARGS) jsonparse $$< -b $$@
 endef
 
 # TOOL_ADD_PAYLOAD appends the command line arguments required by fiptool to
