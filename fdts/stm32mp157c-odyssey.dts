@@ -38,3 +38,7 @@
 	pinctrl-0 = <&uart4_pins_a>;
 	status = "okay";
 };
+
+&cryp1 {
+	status = "okay";
+};
