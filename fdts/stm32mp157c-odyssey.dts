@@ -23,6 +23,10 @@
 	};
 };
 
+&cryp1 {
+	status = "okay";
+};
+
 &sdmmc1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&sdmmc1_b4_pins_a>;
