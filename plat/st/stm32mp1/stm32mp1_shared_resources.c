@@ -284,6 +284,7 @@ static void register_periph_iomem(uintptr_t base, unsigned int state)
 	case UART7_BASE:
 	case UART8_BASE:
 	case IWDG2_BASE:
+	case I2C2_BASE:
 		/* Allow drivers to register some non-secure resources */
 		VERBOSE("IO for non-secure resource 0x%x\n",
 			(unsigned int)base);

@@ -269,6 +269,7 @@ enum ddr_type {
 #define USART3_BASE			U(0x4000F000)
 #define UART4_BASE			U(0x40010000)
 #define UART5_BASE			U(0x40011000)
+#define I2C2_BASE			U(0x40013000)
 #define USART6_BASE			U(0x44003000)
 #define UART7_BASE			U(0x40018000)
 #define UART8_BASE			U(0x40019000)
